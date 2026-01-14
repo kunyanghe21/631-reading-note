@@ -1,0 +1,249 @@
+---
+title: "Reading Notes: A New Look at the Statistical Model Identification"
+subtitle: "Akaike (1974) - The Birth of AIC"
+author: "Kunyang He"
+date: "2025-01-13"
+format: 
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true
+    theme: cosmo
+---
+
+## Paper Overview
+
+**Citation:** Akaike, H. (1974). A new look at the statistical model identification. *IEEE Transactions on Automatic Control*, AC-19(6), 716-723.
+
+**Core Contribution:** Introduction of the Akaike Information Criterion (AIC), a revolutionary approach to model selection that eliminates the subjective judgment required in traditional hypothesis testing.
+
+## Key Mathematical Foundations
+
+### The Problem of Model Selection
+
+Traditional hypothesis testing faces a fundamental logical contradiction: in practical applications, the assumed null hypotheses are only approximations and are **almost always different from reality**. The Neyman-Pearson theory defines loss only through probabilities of Type I and Type II errors, which becomes problematic when all models are approximations.
+
+### Mean Log-Likelihood as a Measure of Fit
+
+#### Kullback-Leibler Information
+
+Given observations $x_1, x_2, \ldots, x_N$ from a true distribution with density $g(x)$, and a parametric family $f(x|\theta)$, the **average log-likelihood** is:
+
+$$
+\frac{1}{N} \sum_{i=1}^{N} \log f(x_i|\theta)
+$$
+
+As $N \to \infty$, this converges (with probability 1) to:
+
+$$
+S(g; f(\cdot|\theta)) = \int g(x) \log f(x|\theta) \, dx
+$$
+
+::: {.callout-note}
+## Key Insight
+$S(g; f(\cdot|\theta))$ serves as a criterion of "fit" - measuring how well the model $f(x|\theta)$ approximates the true distribution $g(x)$.
+:::
+
+#### Kullback-Leibler Divergence
+
+The **Kullback-Leibler mean information** for discrimination between $g(x)$ and $f(x|\theta)$ is:
+
+$$
+I(g; f(\cdot|\theta)) = S(g; g) - S(g; f(\cdot|\theta)) = \int g(x) \log \frac{g(x)}{f(x|\theta)} \, dx
+$$
+
+**Properties:**
+
+- $I(g; f(\cdot|\theta)) \geq 0$ (non-negative)
+- $I(g; f(\cdot|\theta)) = 0$ if and only if $f(x|\theta) = g(x)$ almost everywhere
+
+### The Core Mathematical Derivation
+
+#### Case: True Model Within the Family
+
+When $g(x) = f(x|\theta_0)$, denote:
+
+- $I(\theta_0; \theta) \equiv I(g; f(\cdot|\theta))$
+- $S(\theta_0; \theta) \equiv S(g; f(\cdot|\theta))$
+
+For $\theta$ sufficiently close to $\theta_0$, the Taylor expansion gives:
+
+$$
+\boxed{I(\theta_0; \theta_0 + \Delta\theta) \approx \frac{1}{2} \|\Delta\theta\|_J^2}
+$$
+
+where $\|\Delta\theta\|_J^2 = \Delta\theta' J \Delta\theta$ and $J$ is the **Fisher Information Matrix**:
+
+$$
+J_{ij} = E\left\{ \frac{\partial \log f(X|\theta)}{\partial \theta_i} \cdot \frac{\partial \log f(X|\theta)}{\partial \theta_j} \right\}
+$$
+
+#### Distribution of the MLE
+
+The MLE $\hat{\theta}$ restricted to a parameter subspace $\Theta$ of dimension $k$ satisfies:
+
+$$
+\sqrt{N}(\hat{\theta} - \theta) \xrightarrow{d} \mathcal{N}(0, J^{-1})
+$$
+
+The distribution of $N\|\hat{\theta} - \theta_0\|_J^2$ is approximately $\chi^2_k$ (chi-squared with $k$ degrees of freedom).
+
+#### The Key Expected Value Result
+
+::: {.callout-important}
+## Central Result (Equation 2 in the paper)
+$$
+\boxed{E_{\approx} 2N I(\theta_0; \hat{\theta}) = N \|\theta - \theta_0\|_J^2 + k}
+$$
+
+where:
+
+- $E_{\approx}$ denotes expectation under the approximate asymptotic distribution
+- $k$ is the number of independently adjusted parameters
+- $N$ is the sample size
+:::
+
+This result is **crucial**: it shows that the expected Kullback-Leibler divergence has a systematic bias of $+k$ due to parameter estimation.
+
+### Definition of AIC
+
+#### The Information Criterion
+
+Based on the above derivation, the **Akaike Information Criterion** is defined as:
+
+$$
+\boxed{\text{AIC}(\hat{\theta}) = -2 \log L(\hat{\theta}) + 2k}
+$$
+
+where:
+
+- $L(\hat{\theta})$ is the maximum likelihood
+- $k$ is the number of independently adjusted parameters
+
+**Interpretation:** $\frac{1}{N}\text{AIC}(\hat{\theta})$ estimates $-2E[S(\theta_0; \hat{\theta})]$
+
+#### Model Selection Rule (MAICE)
+
+The **Minimum AIC Estimate (MAICE)** selects the model that minimizes AIC among all candidate models:
+
+$$
+\text{MAICE} = \arg\min_{\text{model } m} \text{AIC}_m
+$$
+
+### Mathematical Intuition
+
+#### The Bias Correction
+
+Without the $+2k$ term, using only $-2\log L(\hat{\theta})$ would favor complex models because:
+
+1. Adding parameters always increases $\log L(\hat{\theta})$ (or keeps it same)
+2. The improvement might be spurious (overfitting to noise)
+
+The $+2k$ penalty corrects for the **downward bias** introduced by using $\hat{\theta}$ instead of $\theta_0$:
+
+$$
+\underbrace{-2 \log L(\hat{\theta})}_{\text{goodness of fit}} + \underbrace{2k}_{\text{complexity penalty}}
+$$
+
+#### Connection to Other Criteria
+
+**Mallows' $C_p$:**
+$$
+C_p = \frac{\text{RSS}}{\hat{\sigma}^2} - N + 2p
+$$
+
+**Final Prediction Error (FPE):**
+$$
+\text{FPE}(p) = \frac{N + p}{N - p} \cdot \hat{\sigma}^2_p
+$$
+
+::: {.callout-tip}
+## Asymptotic Equivalence
+For Gaussian AR models, MAICE using AIC is asymptotically equivalent to the minimum FPE procedure.
+:::
+
+## Application to Time Series
+
+### Gaussian AR Model Fitting
+
+For an AR($p$) model: $y_t = a_1 y_{t-1} + \cdots + a_p y_{t-p} + x_t$
+
+The AIC is computed as:
+
+$$
+\text{AIC}(p, q) = N \log(\text{MLE of innovation variance}) + 2(p + q)
+$$
+
+### Numerical Example from the Paper
+
+Testing AR-MA discrimination with true MA(2) process:
+$$
+y_n = x_n + 0.6x_{n-1} - 0.1x_{n-2}
+$$
+
+| $N$ | Average MAICE AR order |
+|-----|------------------------|
+| 50  | 3.1 |
+| 100 | 4.1 |
+| 200 | 6.5 |
+| 400 | 6.8 |
+| 800 | 8.2 |
+| 1600 | 9.3 |
+
+**Key observation:** AR models need increasing orders to approximate the MA structure, while MAICE correctly identifies the MA(2) model when MA models are included in the comparison.
+
+## Mathematical Summary
+
+### AIC Formula Decomposition
+
+```{mermaid}
+flowchart LR
+    A[AIC] --> B[-2 log L]
+    A --> C[+ 2k]
+    B --> D[Measures model fit]
+    C --> E[Penalizes complexity]
+    D --> F[Lower is better fit]
+    E --> G[Prevents overfitting]
+```
+
+### The Principle of Parsimony
+
+AIC provides a **mathematical formulation of Occam's Razor**:
+
+> When the maximum likelihood is identical for two models, the MAICE is the one defined with the smaller number of parameters.
+
+## Critical Insights
+
+### Advantages over Hypothesis Testing
+
+1. **No arbitrary significance levels**: Eliminates subjective choice of $\alpha$
+2. **Handles non-nested models**: Can compare any models with defined likelihood
+3. **Practical approximation**: Acknowledges all models are approximations
+4. **Automatic complexity control**: Built-in penalty prevents overfitting
+
+### Limitations Noted by Akaike
+
+- When $f(x|\theta)$ is far from $g(x)$, $S(g; f(\cdot|\theta))$ is only a subjective measure
+- The derivation assumes at least one model is "sufficiently close" to the truth
+- The $+2k$ penalty is based on asymptotic approximations
+
+## Key Equations Summary
+
+| Concept | Formula |
+|---------|---------|
+| Mean log-likelihood | $S(g; f(\cdot|\theta)) = \int g(x) \log f(x|\theta) \, dx$ |
+| KL divergence | $I(g; f) = S(g;g) - S(g;f)$ |
+| Fisher Information | $J_{ij} = E\left[\frac{\partial \log f}{\partial \theta_i} \frac{\partial \log f}{\partial \theta_j}\right]$ |
+| Local approximation | $I(\theta_0; \theta_0 + \Delta\theta) \approx \frac{1}{2}\Delta\theta' J \Delta\theta$ |
+| **AIC** | $\boxed{-2\log L(\hat{\theta}) + 2k}$ |
+
+## References and Further Reading
+
+- Burnham, K. P., & Anderson, D. R. (2002). *Model Selection and Multimodel Inference*. Springer.
+- Kullback, S. (1959). *Information Theory and Statistics*. Wiley.
+- Lehman, E. L. (1959). *Testing Statistical Hypothesis*. Wiley.
+
+---
+
+
