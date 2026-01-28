@@ -1,0 +1,103 @@
+---
+title: "Summary: Science and Statistics"
+author: "Kunyang He"
+date: "2026-01-21"
+format: html
+---
+
+## Overview
+
+This paper is the written version of the R.A. Fisher Memorial Lecture delivered by George E.P. Box in 1974. Box examines the relationship between scientific method and statistical practice, using Fisher's career at Rothamsted Experimental Station as a case study for how theory and practice should interact in statistical work.
+
+## Key Themes
+
+### 1. The Iteration Between Theory and Practice
+
+Box presents scientific progress as a **feedback loop** between theory and practice. Facts lead to tentative theories, which generate deductions that are tested against reality. Discrepancies between predictions and observations produce an "error signal" that drives learning and theory modification.
+
+The core insight: *"It is the error signal—the discrepancy between what tentative theory suggests should be so and what practice says is so—that can produce learning."*
+
+### 2. Parsimony in Modeling
+
+Box introduces what has become one of the most famous aphorisms in statistics:
+
+> "Since all models are wrong the scientist cannot obtain a 'correct' one by excessive elaboration."
+
+Following William of Occam, he argues that simple, evocative models mark great scientists, while overelaboration and overparameterization indicate mediocrity. The statistician must accept that assumptions like normality and linearity are false but can still yield useful approximations.
+
+### 3. Worrying Selectively
+
+A complementary principle: since all models are wrong, scientists must focus on what is **importantly** wrong. Box memorably states: *"It is inappropriate to be concerned about mice when there are tigers abroad."*
+
+### 4. The Role of Mathematics
+
+Pure mathematics deals with conditional propositions divorced from real-world truth. Applied mathematics (including statistics) makes tentative assumptions known to be false but potentially useful. This means statistical techniques cannot be validated purely theoretically—they must be tested through use.
+
+## Fisher at Rothamsted: A Case Study
+
+Box illustrates these principles through Fisher's work at Rothamsted Experimental Station (1919-1933), showing how practical problems generated theoretical innovations:
+
+| Practical Problem | Statistical Innovation |
+|------------------|----------------------|
+| Baby weight data | Graphical methods for data exploration |
+| Tea-tasting experiment | Principles of experimental design |
+| Bacterial counts | Nonlinear design |
+| Cotton yarn strength | Extreme value theory |
+| Crop yield analysis | Orthogonal polynomials, residual analysis |
+| Rainfall effects | Distributed lag models |
+| Potato experiments | Analysis of variance |
+| Field experiments | Randomization, blocking, factorial designs |
+
+### The Evolution of Statistical Methods
+
+Box traces a three-stage development at Rothamsted:
+
+1. **Analysis of existing records** → revealed limitations and possibilities
+2. **Analysis of experimental trials** → developed analytical methods  
+3. **Design of experimental trials** → created principles for data collection
+
+This progression transformed the statistician's role from "curator of dusty relics" to "architect" who ensures experimental structures are sound and economical.
+
+## Perils of the Open Loop
+
+Box identifies two pathologies that arise when the theory-practice feedback loop breaks:
+
+### Cookbookery
+Forcing all problems into routine techniques without considering whether assumptions are appropriate or objectives are being met.
+
+### Mathematistry
+Developing theory for theory's sake, disconnected from practical application. Characterized by:
+
+- Redefining problems rather than solving them
+- Losing sight of original scientific relevance
+- Creating solutions never tested for usefulness
+
+Box warns that mathematistry harms fields like sociology, psychology, and education when practitioners adopt inappropriate procedures "devised by mathematicians with no scientific experience."
+
+## Implications for Statistical Training
+
+Box argues that competent statisticians need:
+
+- Balance of theory and practice
+- Ability to comprehend complex scientific problems
+- Patience to listen and ask the right questions
+- Wisdom to distinguish important from unimportant concerns
+- Courage to stake reputation on experimental designs
+
+He quotes Fisher's 1952 advice that statistical centers should "integrate teaching closely with project work" rather than "segregating the keener minds into a completely sterile atmosphere."
+
+## Conclusion
+
+Box asks of Fisher: Was he an applied statistician? A mathematical statistician? A data analyst? A designer of investigations?
+
+The answer: **all of these**, which made him "much more than the sum of the parts." Fisher's integration of theory and practice provides a model for statistical work.
+
+## Key Quotations
+
+- "Since all models are wrong the scientist must be alert to what is importantly wrong."
+- "We cannot know that any statistical technique we develop is useful unless we use it."
+- "The statistician was not a curator of dusty relics. His responsibility to the scientific team was that of the architect."
+
+## Reference
+
+Box, G.E.P. (1976). Science and Statistics. *Journal of the American Statistical Association*, 71(356), 791-799.

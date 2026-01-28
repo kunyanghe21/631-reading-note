@@ -1,0 +1,637 @@
+---
+title: "Automatic Time Series Forecasting: A Deep Dive into Hyndman & Khandakar (2008)"
+author: "Kunyang He"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: false
+    theme: cosmo
+    highlight-style: github
+execute:
+  warning: false
+  message: false
+---
+
+## 1. Introduction and Motivation
+
+### 1.1 Why Automatic Forecasting?
+
+The paper by Hyndman & Khandakar (2008), published in the *Journal of Statistical Software*, addresses a practical problem in business forecasting:
+
+> "It is common to have over one thousand product lines that need forecasting at least monthly."
+
+**Key challenges:**
+
+- Manual model selection is infeasible for thousands of series
+- Many practitioners lack expertise in time series modeling
+- Need for robust algorithms that work without user intervention
+
+### 1.2 Paper Impact
+
+This paper has been **cited over 5,000 times** on Google Scholar, making it one of the most influential papers in applied time series analysis.
+
+::: {.callout-warning}
+## A Word of Caution
+As noted in critical reviews, many inexperienced users apply `auto.arima()` blindly and call it the "best" model simply because an algorithm selected it. **Automatic ≠ Optimal** in all cases.
+:::
+
+---
+
+## 2. Exponential Smoothing Methods
+
+### 2.1 The ETS Framework
+
+Exponential smoothing methods can be classified using the **ETS(Error, Trend, Seasonal)** notation:
+
+| Component | Options |
+|-----------|---------|
+| **Error** | Additive (A), Multiplicative (M) |
+| **Trend** | None (N), Additive (A), Additive Damped (Ad), Multiplicative (M), Multiplicative Damped (Md) |
+| **Seasonal** | None (N), Additive (A), Multiplicative (M) |
+
+This gives us **30 possible models** (though some are rarely used).
+
+### 2.2 Common Model Examples
+
+```{r}
+#| echo: false
+#| label: tbl-ets-models
+#| tbl-cap: "Common ETS Models and Their Traditional Names"
+
+library(knitr)
+models <- data.frame(
+  ETS_Notation = c("ETS(A,N,N)", "ETS(A,A,N)", "ETS(A,Ad,N)", 
+                   "ETS(A,A,A)", "ETS(A,A,M)", "ETS(M,A,M)"),
+  Traditional_Name = c("Simple Exponential Smoothing (SES)",
+                       "Holt's Linear Method",
+                       "Damped Trend Method",
+                       "Additive Holt-Winters",
+                       "Multiplicative Holt-Winters",
+                       "Holt-Winters with Multiplicative Errors"),
+  Use_Case = c("No trend, no seasonality",
+               "Linear trend, no seasonality",
+               "Trend that levels off",
+               "Linear trend + additive seasons",
+               "Linear trend + multiplicative seasons",
+               "When variance increases with level")
+)
+kable(models)
+```
+
+### 2.3 Holt-Winters Additive Method: A Detailed Example
+
+The Holt-Winters additive method ETS(A,A,A) uses these equations:
+
+**Level:** 
+$$\ell_t = \alpha(y_t - s_{t-m}) + (1-\alpha)(\ell_{t-1} + b_{t-1})$$
+
+**Trend:** 
+$$b_t = \beta^*(\ell_t - \ell_{t-1}) + (1-\beta^*)b_{t-1}$$
+
+**Seasonal:** 
+$$s_t = \gamma(y_t - \ell_{t-1} - b_{t-1}) + (1-\gamma)s_{t-m}$$
+
+**Forecast:** 
+$$\hat{y}_{t+h|t} = \ell_t + b_t h + s_{t-m+h_m^+}$$
+
+where $m$ is the seasonal period and $h_m^+ = [(h-1) \mod m] + 1$.
+
+### 2.4 State Space Representation
+
+::: {.callout-note}
+## From Ad-hoc to Rigorous
+Exponential smoothing may seem ad-hoc until embedded in a **state space model (SSM)**. The SSM framework provides:
+
+- A probabilistic foundation
+- Prediction intervals
+- Likelihood-based estimation
+- Model selection via information criteria
+:::
+
+The general innovations state space model:
+
+$$y_t = w(\mathbf{x}_{t-1}) + r(\mathbf{x}_{t-1})\varepsilon_t$$
+$$\mathbf{x}_t = f(\mathbf{x}_{t-1}) + g(\mathbf{x}_{t-1})\varepsilon_t$$
+
+where $\{\varepsilon_t\}$ is Gaussian white noise with mean zero and variance $\sigma^2$.
+
+### 2.5 Technical Note: The POMP Assumption
+
+::: {.callout-important}
+## A Technical Critique
+The innovations state space model **violates** the usual POMP (Partially Observed Markov Process) assumption that $Y_n$ is conditionally independent of all other variables given $X_n$.
+
+**Why?** The same error term $\varepsilon_t$ appears in both the observation and state equations.
+:::
+
+**Standard POMP:**
+```
+State noise η_t ──→ X_t ──→ Y_t ←── Observation noise ε_t
+(Two independent noise sources)
+```
+
+**Innovations State Space:**
+```
+Single ε_t ──┬──→ X_t (state update)
+             └──→ Y_t (observation)
+(One shared noise source)
+```
+
+This is not an error—it's a different model class that simplifies likelihood computation.
+
+### 2.6 R Implementation: `ets()` Function
+
+```{r}
+#| label: ets-example
+library(forecast)
+
+# Load example data: Monthly airline passengers
+data("AirPassengers")
+ap <- AirPassengers
+
+# Automatic model selection
+ets_fit <- ets(ap)
+print(ets_fit)
+```
+
+```{r}
+#| label: ets-components
+#| fig-cap: "ETS Model Components"
+#| fig-height: 6
+
+# Plot the decomposition
+plot(ets_fit)
+```
+
+```{r}
+#| label: ets-forecast
+#| fig-cap: "ETS Forecast with Prediction Intervals"
+
+# Generate forecasts
+ets_forecast <- forecast(ets_fit, h = 24)
+plot(ets_forecast, main = "Air Passengers Forecast (ETS)")
+```
+
+### 2.7 Initial Value Estimation
+
+::: {.callout-tip}
+## Key Innovation
+Most implementations use **ad-hoc heuristics** for initial values. The `forecast` package estimates initial values $\mathbf{x}_0$ along with parameters $\theta$ via maximum likelihood:
+
+$$L^*(\theta, \mathbf{x}_0) = n \log\left(\sum_{t=1}^n \varepsilon_t^2\right) + 2\sum_{t=1}^n \log|r(\mathbf{x}_{t-1})|$$
+
+This often produces **substantially better forecasts**.
+:::
+
+```{r}
+#| label: ets-parameters
+
+# Extract estimated parameters
+cat("Smoothing parameters:\n")
+cat("  alpha =", ets_fit$par["alpha"], "\n")
+cat("  beta  =", ets_fit$par["beta"], "\n")
+cat("  gamma =", ets_fit$par["gamma"], "\n")
+
+cat("\nInitial states:\n")
+cat("  l0 =", ets_fit$initstate[1], "\n")
+cat("  b0 =", ets_fit$initstate[2], "\n")
+```
+
+---
+
+## 3. ARIMA Models
+
+### 3.1 Model Specification
+
+A seasonal ARIMA$(p,d,q)(P,D,Q)_m$ model:
+
+$$\Phi(B^m)\phi(B)(1-B^m)^D(1-B)^d y_t = c + \Theta(B^m)\theta(B)\varepsilon_t$$
+
+where:
+
+- $p, q$: non-seasonal AR and MA orders
+- $P, Q$: seasonal AR and MA orders  
+- $d, D$: non-seasonal and seasonal differencing
+- $m$: seasonal period (e.g., 12 for monthly data)
+
+### 3.2 The Challenge of Model Selection
+
+With $p, q \in \{0,1,2,3,4,5\}$ and $P, Q \in \{0,1,2\}$, we have potentially **hundreds of models** to consider.
+
+### 3.3 Determining Differencing Orders
+
+::: {.callout-note}
+## Unit Root Tests vs. Diffuse Priors
+The paper prefers **unit root tests** over diffuse priors because:
+
+> "Over-differencing harms forecasts and widens prediction intervals."
+
+- **KPSS test**: For non-seasonal differencing $d$
+- **Canova-Hansen test**: For seasonal differencing $D$
+:::
+
+```{r}
+#| label: unit-root-tests
+
+library(tseries)
+
+# Example: Testing for unit roots
+# KPSS test (null: stationary)
+kpss_result <- kpss.test(ap)
+cat("KPSS Test p-value:", kpss_result$p.value, "\n")
+cat("Interpretation: p < 0.05 suggests differencing needed\n")
+
+# Test on differenced data
+kpss_diff <- kpss.test(diff(ap))
+cat("\nKPSS on differenced data p-value:", kpss_diff$p.value, "\n")
+```
+
+### 3.4 The Stepwise Algorithm
+
+The `auto.arima()` function uses a **stepwise search** rather than exhaustive search:
+
+**Step 1:** Start with 4 candidate models:
+
+- ARIMA(2,d,2)(1,D,1) or simpler variants
+- ARIMA(0,d,0)(0,D,0)
+- ARIMA(1,d,0)(1,D,0)
+- ARIMA(0,d,1)(0,D,1)
+
+**Step 2:** Consider 13 variations of current best:
+
+- Vary $p, q, P, Q$ by ±1
+- Vary both $p$ and $q$ by ±1
+- Vary both $P$ and $Q$ by ±1
+- Include/exclude constant $c$
+
+**Step 3:** Select model with lowest AIC; repeat until no improvement.
+
+```{r}
+#| label: auto-arima-example
+
+# Automatic ARIMA model selection
+arima_fit <- auto.arima(ap, trace = TRUE)
+```
+
+```{r}
+#| label: arima-summary
+
+# Model summary
+summary(arima_fit)
+```
+
+### 3.5 Model Constraints
+
+The algorithm rejects models that:
+
+1. Have roots close to unit circle (|root| < 1.001)
+2. Encounter numerical optimization errors
+3. Exceed specified bounds for $p, q, P, Q$
+
+```{r}
+#| label: arima-roots
+
+# Check AR and MA polynomial roots
+# AR roots should have modulus > 1 for stationarity
+# MA roots should have modulus > 1 for invertibility
+cat("Model coefficients:\n")
+print(coef(arima_fit))
+```
+
+### 3.6 ARIMA Forecast
+
+```{r}
+#| label: arima-forecast
+#| fig-cap: "ARIMA Forecast with Prediction Intervals"
+
+arima_forecast <- forecast(arima_fit, h = 24)
+plot(arima_forecast, main = "Air Passengers Forecast (ARIMA)")
+```
+
+---
+
+## 4. Model Selection: Why AIC?
+
+### 4.1 AIC Formula
+
+$$\text{AIC} = -2\log(L) + 2k$$
+
+where $L$ is the maximized likelihood and $k$ is the number of parameters.
+
+### 4.2 AIC vs BIC
+
+::: {.callout-warning}
+## Critical Perspective
+The paper states: "Obviously, other model selection criteria (such as the BIC) could also be used."
+
+But is there anything special about AIC? **Not for consistent model selection.**
+
+| Criterion | Tendency | Best For |
+|-----------|----------|----------|
+| AIC | Selects more complex models | Prediction |
+| BIC | Selects simpler models | Model identification |
+:::
+
+```{r}
+#| label: aic-bic-comparison
+
+# Compare AIC and BIC for different models
+models <- list(
+  ets_AAN = ets(ap, model = "AAN"),
+  ets_AAA = ets(ap, model = "AAA"),
+  ets_MAM = ets(ap, model = "MAM")
+)
+
+comparison <- data.frame(
+  Model = names(models),
+  AIC = sapply(models, function(x) x$aic),
+  BIC = sapply(models, function(x) x$bic)
+)
+
+kable(comparison, digits = 2, caption = "Model Comparison: AIC vs BIC")
+```
+
+---
+
+## 5. ETS vs ARIMA: When to Use Which?
+
+### 5.1 Competition Results
+
+From the M-competition and M3-competition:
+
+> "The methodology is particularly good at **short term forecasts** (up to about 6 periods ahead), and especially for **seasonal short-term series**."
+
+### 5.2 Key Insight: Bigger Model Class ≠ Better
+
+::: {.callout-important}
+## Counter-intuitive Finding
+ARIMA has a **larger model space** than ETS, but this can actually **harm** performance:
+
+> "The larger model space of ARIMA models actually harms forecasting performance because it introduces additional uncertainty."
+
+| Method | Number of Models | Seasonal Performance |
+|--------|------------------|----------------------|
+| ETS | ~30 | Better |
+| SARIMA | ~480+ | More model selection uncertainty |
+:::
+
+### 5.3 Practical Comparison
+
+```{r}
+#| label: ets-vs-arima
+#| fig-cap: "ETS vs ARIMA Forecasts Comparison"
+#| fig-height: 8
+
+par(mfrow = c(2, 1))
+
+# ETS forecast
+plot(ets_forecast, main = "ETS Forecast")
+
+# ARIMA forecast  
+plot(arima_forecast, main = "ARIMA Forecast")
+```
+
+```{r}
+#| label: accuracy-comparison
+
+# Compare in-sample accuracy
+cat("ETS Accuracy:\n")
+print(accuracy(ets_fit))
+
+cat("\nARIMA Accuracy:\n")
+print(accuracy(arima_fit))
+```
+
+### 5.4 Cross-Validation Comparison
+
+```{r}
+#| label: cv-comparison
+
+# Time series cross-validation
+# Using a rolling window approach
+n <- length(ap)
+train_size <- 120  # Use first 10 years for initial training
+
+ets_errors <- c()
+arima_errors <- c()
+
+for(i in 1:12) {
+  train <- window(ap, end = c(1958, i + 11))
+  test <- window(ap, start = c(1958, i + 12), end = c(1958, i + 12))
+  
+  if(length(test) > 0) {
+    # ETS forecast
+    ets_model <- ets(train)
+    ets_fc <- forecast(ets_model, h = 1)
+    ets_errors <- c(ets_errors, as.numeric(test) - ets_fc$mean)
+    
+    # ARIMA forecast
+    arima_model <- auto.arima(train)
+    arima_fc <- forecast(arima_model, h = 1)
+    arima_errors <- c(arima_errors, as.numeric(test) - arima_fc$mean)
+  }
+}
+
+cat("One-step-ahead forecast comparison:\n")
+cat("ETS RMSE:", sqrt(mean(ets_errors^2, na.rm = TRUE)), "\n")
+cat("ARIMA RMSE:", sqrt(mean(arima_errors^2, na.rm = TRUE)), "\n")
+```
+
+---
+
+## 6. Practical Examples
+
+### 6.1 Example 1: Non-Seasonal Data (US Bond Yields)
+
+```{r}
+#| label: example-nonseasonal
+#| fig-cap: "US Bond Yields: Non-Seasonal Example"
+
+# Simulate similar data to paper's example
+set.seed(42)
+bonds <- ts(cumsum(rnorm(125, 0, 0.3)) + 5, start = c(1994, 1), frequency = 12)
+
+# Fit models
+ets_bonds <- ets(bonds)
+arima_bonds <- auto.arima(bonds)
+
+cat("ETS model selected:", ets_bonds$method, "\n")
+cat("ARIMA model selected: ARIMA(", paste(arimaorder(arima_bonds), collapse = ","), ")\n", sep = "")
+
+# Forecast
+par(mfrow = c(1, 2))
+plot(forecast(ets_bonds, h = 24), main = "ETS")
+plot(forecast(arima_bonds, h = 24), main = "ARIMA")
+```
+
+### 6.2 Example 2: Seasonal Data with Trend
+
+```{r}
+#| label: example-seasonal
+#| fig-cap: "Seasonal Data with Trend"
+#| fig-height: 8
+
+# Australian tourists data (similar to paper)
+data("austourists", package = "fpp2")
+
+# Fit both models
+ets_tourists <- ets(austourists)
+arima_tourists <- auto.arima(austourists)
+
+cat("ETS model:", ets_tourists$method, "\n")
+cat("ARIMA model: ARIMA", paste(arimaorder(arima_tourists), collapse = ","), "\n")
+
+# Compare forecasts
+par(mfrow = c(2, 1))
+plot(forecast(ets_tourists, h = 16), main = paste("ETS:", ets_tourists$method))
+plot(forecast(arima_tourists, h = 16), main = "ARIMA")
+```
+
+### 6.3 Example 3: Intermittent Demand (Croston's Method)
+
+```{r}
+#| label: croston-example
+#| fig-cap: "Intermittent Demand Forecasting"
+
+# Simulate intermittent demand
+set.seed(123)
+demand <- rpois(100, lambda = 0.5)
+demand_ts <- ts(demand)
+
+# Croston's method for intermittent demand
+croston_fit <- croston(demand_ts, h = 20)
+plot(croston_fit, main = "Croston's Method for Intermittent Demand")
+```
+
+---
+
+## 7. The `forecast` Class and Software Design
+
+### 7.1 S3 Object-Oriented Design
+
+The package uses R's **S3 class system** for flexibility:
+
+```{r}
+#| label: s3-demo
+
+# The forecast object
+fc <- forecast(ets_fit, h = 12)
+
+# Check the class
+cat("Class:", class(fc), "\n")
+
+# What's inside?
+cat("\nComponents of forecast object:\n")
+names(fc)
+```
+
+### 7.2 Generic Functions
+
+```{r}
+#| label: generic-functions
+
+# These all work because of S3 methods
+# print.forecast, plot.forecast, summary.forecast, etc.
+
+# Accessing components
+cat("Point forecasts:\n")
+print(fc$mean)
+
+cat("\n80% Prediction Interval:\n")
+print(cbind(Lower = fc$lower[,1], Upper = fc$upper[,1]))
+```
+
+### 7.3 Why S3 Over S4?
+
+| S3 Advantages | Reason |
+|---------------|--------|
+| Simple | Easy to learn and use |
+| Flexible | Easy to extend |
+| R Convention | Most base R packages use S3 |
+| Sufficient | Complex OOP rarely needed for statistics |
+
+---
+
+## 8. Summary and Key Takeaways
+
+### 8.1 Main Contributions
+
+1. **Unified framework** for exponential smoothing via state space models
+2. **Automatic model selection** using AIC
+3. **Stepwise algorithm** for ARIMA to avoid exhaustive search
+4. **Robust implementation** in the `forecast` package
+
+### 8.2 When Each Method Excels
+
+```{r}
+#| echo: false
+#| label: tbl-method-comparison
+#| tbl-cap: "When to Use ETS vs ARIMA"
+
+comparison_table <- data.frame(
+  Scenario = c("Short-term forecasts", 
+               "Seasonal data",
+               "Annual data",
+               "Data with heteroscedasticity",
+               "Need for interpretability",
+               "Stationary data"),
+  Recommended = c("ETS", "ETS", "ARIMA", "ETS (multiplicative)", 
+                  "ETS", "ARIMA"),
+  Reason = c("Competition results favor ETS",
+             "Smaller model space reduces uncertainty",
+             "ARIMA performed better in M3",
+             "Multiplicative errors handle this",
+             "Clear level/trend/season decomposition",
+             "ARIMA's strength")
+)
+kable(comparison_table)
+```
+
+### 8.3 Critical Perspectives
+
+::: {.callout-warning}
+## Limitations to Remember
+
+1. **Not truly "optimal"**: Automatic selection ≠ best possible model
+2. **AIC limitations**: Not consistent for model identification
+3. **Stepwise search**: May find local, not global, optimum
+4. **No nonlinear trends**: ARIMA framework doesn't support this with ARMA errors
+5. **Assumption violations**: Innovations SSM violates standard POMP assumptions
+:::
+
+### 8.4 Best Practices
+
+1. **Don't use blindly**: Understand what the algorithm is doing
+2. **Check residuals**: Always validate model assumptions
+3. **Compare methods**: Try both ETS and ARIMA
+4. **Consider domain knowledge**: Automatic doesn't mean ignore expertise
+5. **Evaluate out-of-sample**: Use cross-validation when possible
+
+```{r}
+#| label: residual-check
+#| fig-cap: "Residual Diagnostics for Model Validation"
+
+# Always check residuals!
+checkresiduals(ets_fit)
+```
+
+---
+
+## 9. References
+
+- Hyndman, R.J., & Khandakar, Y. (2008). Automatic time series forecasting: The forecast package for R. *Journal of Statistical Software*, 27(3), 1-22.
+
+- Hyndman, R.J., Koehler, A.B., Ord, J.K., & Snyder, R.D. (2008). *Forecasting with Exponential Smoothing: The State Space Approach*. Springer.
+
+- Hyndman, R.J., & Athanasopoulos, G. (2021). *Forecasting: Principles and Practice* (3rd ed). OTexts. Available at: https://otexts.com/fpp3/
+
+---
+
+## Appendix: Session Information
+
+```{r}
+#| label: session-info
+sessionInfo()
+```

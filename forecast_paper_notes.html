@@ -1,0 +1,1687 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.7.31">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Kunyang He">
+<meta name="dcterms.date" content="2026-01-28">
+
+<title>Automatic Time Series Forecasting: A Deep Dive into Hyndman &amp; Khandakar (2008)</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="forecast_paper_notes_files/libs/clipboard/clipboard.min.js"></script>
+<script src="forecast_paper_notes_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="forecast_paper_notes_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="forecast_paper_notes_files/libs/quarto-html/popper.min.js"></script>
+<script src="forecast_paper_notes_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="forecast_paper_notes_files/libs/quarto-html/anchor.min.js"></script>
+<link href="forecast_paper_notes_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="forecast_paper_notes_files/libs/quarto-html/quarto-syntax-highlighting-4a990d8dcb58f517c7c86712b8f2ac7c.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="forecast_paper_notes_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="forecast_paper_notes_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="forecast_paper_notes_files/libs/bootstrap/bootstrap-dfb3f4843b9b0ce307f095fcbeec1e0c.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN") {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#introduction-and-motivation" id="toc-introduction-and-motivation" class="nav-link active" data-scroll-target="#introduction-and-motivation">1. Introduction and Motivation</a>
+  <ul class="collapse">
+  <li><a href="#why-automatic-forecasting" id="toc-why-automatic-forecasting" class="nav-link" data-scroll-target="#why-automatic-forecasting">1.1 Why Automatic Forecasting?</a></li>
+  <li><a href="#paper-impact" id="toc-paper-impact" class="nav-link" data-scroll-target="#paper-impact">1.2 Paper Impact</a></li>
+  </ul></li>
+  <li><a href="#exponential-smoothing-methods" id="toc-exponential-smoothing-methods" class="nav-link" data-scroll-target="#exponential-smoothing-methods">2. Exponential Smoothing Methods</a>
+  <ul class="collapse">
+  <li><a href="#the-ets-framework" id="toc-the-ets-framework" class="nav-link" data-scroll-target="#the-ets-framework">2.1 The ETS Framework</a></li>
+  <li><a href="#common-model-examples" id="toc-common-model-examples" class="nav-link" data-scroll-target="#common-model-examples">2.2 Common Model Examples</a></li>
+  <li><a href="#holt-winters-additive-method-a-detailed-example" id="toc-holt-winters-additive-method-a-detailed-example" class="nav-link" data-scroll-target="#holt-winters-additive-method-a-detailed-example">2.3 Holt-Winters Additive Method: A Detailed Example</a></li>
+  <li><a href="#state-space-representation" id="toc-state-space-representation" class="nav-link" data-scroll-target="#state-space-representation">2.4 State Space Representation</a></li>
+  <li><a href="#technical-note-the-pomp-assumption" id="toc-technical-note-the-pomp-assumption" class="nav-link" data-scroll-target="#technical-note-the-pomp-assumption">2.5 Technical Note: The POMP Assumption</a></li>
+  <li><a href="#r-implementation-ets-function" id="toc-r-implementation-ets-function" class="nav-link" data-scroll-target="#r-implementation-ets-function">2.6 R Implementation: <code>ets()</code> Function</a></li>
+  <li><a href="#initial-value-estimation" id="toc-initial-value-estimation" class="nav-link" data-scroll-target="#initial-value-estimation">2.7 Initial Value Estimation</a></li>
+  </ul></li>
+  <li><a href="#arima-models" id="toc-arima-models" class="nav-link" data-scroll-target="#arima-models">3. ARIMA Models</a>
+  <ul class="collapse">
+  <li><a href="#model-specification" id="toc-model-specification" class="nav-link" data-scroll-target="#model-specification">3.1 Model Specification</a></li>
+  <li><a href="#the-challenge-of-model-selection" id="toc-the-challenge-of-model-selection" class="nav-link" data-scroll-target="#the-challenge-of-model-selection">3.2 The Challenge of Model Selection</a></li>
+  <li><a href="#determining-differencing-orders" id="toc-determining-differencing-orders" class="nav-link" data-scroll-target="#determining-differencing-orders">3.3 Determining Differencing Orders</a></li>
+  <li><a href="#the-stepwise-algorithm" id="toc-the-stepwise-algorithm" class="nav-link" data-scroll-target="#the-stepwise-algorithm">3.4 The Stepwise Algorithm</a></li>
+  <li><a href="#model-constraints" id="toc-model-constraints" class="nav-link" data-scroll-target="#model-constraints">3.5 Model Constraints</a></li>
+  <li><a href="#arima-forecast" id="toc-arima-forecast" class="nav-link" data-scroll-target="#arima-forecast">3.6 ARIMA Forecast</a></li>
+  </ul></li>
+  <li><a href="#model-selection-why-aic" id="toc-model-selection-why-aic" class="nav-link" data-scroll-target="#model-selection-why-aic">4. Model Selection: Why AIC?</a>
+  <ul class="collapse">
+  <li><a href="#aic-formula" id="toc-aic-formula" class="nav-link" data-scroll-target="#aic-formula">4.1 AIC Formula</a></li>
+  <li><a href="#aic-vs-bic" id="toc-aic-vs-bic" class="nav-link" data-scroll-target="#aic-vs-bic">4.2 AIC vs BIC</a></li>
+  </ul></li>
+  <li><a href="#ets-vs-arima-when-to-use-which" id="toc-ets-vs-arima-when-to-use-which" class="nav-link" data-scroll-target="#ets-vs-arima-when-to-use-which">5. ETS vs ARIMA: When to Use Which?</a>
+  <ul class="collapse">
+  <li><a href="#competition-results" id="toc-competition-results" class="nav-link" data-scroll-target="#competition-results">5.1 Competition Results</a></li>
+  <li><a href="#key-insight-bigger-model-class-better" id="toc-key-insight-bigger-model-class-better" class="nav-link" data-scroll-target="#key-insight-bigger-model-class-better">5.2 Key Insight: Bigger Model Class ≠ Better</a></li>
+  <li><a href="#practical-comparison" id="toc-practical-comparison" class="nav-link" data-scroll-target="#practical-comparison">5.3 Practical Comparison</a></li>
+  <li><a href="#cross-validation-comparison" id="toc-cross-validation-comparison" class="nav-link" data-scroll-target="#cross-validation-comparison">5.4 Cross-Validation Comparison</a></li>
+  </ul></li>
+  <li><a href="#practical-examples" id="toc-practical-examples" class="nav-link" data-scroll-target="#practical-examples">6. Practical Examples</a>
+  <ul class="collapse">
+  <li><a href="#example-1-non-seasonal-data-us-bond-yields" id="toc-example-1-non-seasonal-data-us-bond-yields" class="nav-link" data-scroll-target="#example-1-non-seasonal-data-us-bond-yields">6.1 Example 1: Non-Seasonal Data (US Bond Yields)</a></li>
+  <li><a href="#example-2-seasonal-data-with-trend" id="toc-example-2-seasonal-data-with-trend" class="nav-link" data-scroll-target="#example-2-seasonal-data-with-trend">6.2 Example 2: Seasonal Data with Trend</a></li>
+  <li><a href="#example-3-intermittent-demand-crostons-method" id="toc-example-3-intermittent-demand-crostons-method" class="nav-link" data-scroll-target="#example-3-intermittent-demand-crostons-method">6.3 Example 3: Intermittent Demand (Croston’s Method)</a></li>
+  </ul></li>
+  <li><a href="#the-forecast-class-and-software-design" id="toc-the-forecast-class-and-software-design" class="nav-link" data-scroll-target="#the-forecast-class-and-software-design">7. The <code>forecast</code> Class and Software Design</a>
+  <ul class="collapse">
+  <li><a href="#s3-object-oriented-design" id="toc-s3-object-oriented-design" class="nav-link" data-scroll-target="#s3-object-oriented-design">7.1 S3 Object-Oriented Design</a></li>
+  <li><a href="#generic-functions" id="toc-generic-functions" class="nav-link" data-scroll-target="#generic-functions">7.2 Generic Functions</a></li>
+  <li><a href="#why-s3-over-s4" id="toc-why-s3-over-s4" class="nav-link" data-scroll-target="#why-s3-over-s4">7.3 Why S3 Over S4?</a></li>
+  </ul></li>
+  <li><a href="#summary-and-key-takeaways" id="toc-summary-and-key-takeaways" class="nav-link" data-scroll-target="#summary-and-key-takeaways">8. Summary and Key Takeaways</a>
+  <ul class="collapse">
+  <li><a href="#main-contributions" id="toc-main-contributions" class="nav-link" data-scroll-target="#main-contributions">8.1 Main Contributions</a></li>
+  <li><a href="#when-each-method-excels" id="toc-when-each-method-excels" class="nav-link" data-scroll-target="#when-each-method-excels">8.2 When Each Method Excels</a></li>
+  <li><a href="#critical-perspectives" id="toc-critical-perspectives" class="nav-link" data-scroll-target="#critical-perspectives">8.3 Critical Perspectives</a></li>
+  <li><a href="#best-practices" id="toc-best-practices" class="nav-link" data-scroll-target="#best-practices">8.4 Best Practices</a></li>
+  </ul></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">9. References</a></li>
+  <li><a href="#appendix-session-information" id="toc-appendix-session-information" class="nav-link" data-scroll-target="#appendix-session-information">Appendix: Session Information</a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Automatic Time Series Forecasting: A Deep Dive into Hyndman &amp; Khandakar (2008)</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Kunyang He </p>
+          </div>
+  </div>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">January 28, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="introduction-and-motivation" class="level2">
+<h2 class="anchored" data-anchor-id="introduction-and-motivation">1. Introduction and Motivation</h2>
+<section id="why-automatic-forecasting" class="level3">
+<h3 class="anchored" data-anchor-id="why-automatic-forecasting">1.1 Why Automatic Forecasting?</h3>
+<p>The paper by Hyndman &amp; Khandakar (2008), published in the <em>Journal of Statistical Software</em>, addresses a practical problem in business forecasting:</p>
+<blockquote class="blockquote">
+<p>“It is common to have over one thousand product lines that need forecasting at least monthly.”</p>
+</blockquote>
+<p><strong>Key challenges:</strong></p>
+<ul>
+<li>Manual model selection is infeasible for thousands of series</li>
+<li>Many practitioners lack expertise in time series modeling</li>
+<li>Need for robust algorithms that work without user intervention</li>
+</ul>
+</section>
+<section id="paper-impact" class="level3">
+<h3 class="anchored" data-anchor-id="paper-impact">1.2 Paper Impact</h3>
+<p>This paper has been <strong>cited over 5,000 times</strong> on Google Scholar, making it one of the most influential papers in applied time series analysis.</p>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+A Word of Caution
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>As noted in critical reviews, many inexperienced users apply <code>auto.arima()</code> blindly and call it the “best” model simply because an algorithm selected it. <strong>Automatic ≠ Optimal</strong> in all cases.</p>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="exponential-smoothing-methods" class="level2">
+<h2 class="anchored" data-anchor-id="exponential-smoothing-methods">2. Exponential Smoothing Methods</h2>
+<section id="the-ets-framework" class="level3">
+<h3 class="anchored" data-anchor-id="the-ets-framework">2.1 The ETS Framework</h3>
+<p>Exponential smoothing methods can be classified using the <strong>ETS(Error, Trend, Seasonal)</strong> notation:</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 55%">
+<col style="width: 45%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Component</th>
+<th>Options</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Error</strong></td>
+<td>Additive (A), Multiplicative (M)</td>
+</tr>
+<tr class="even">
+<td><strong>Trend</strong></td>
+<td>None (N), Additive (A), Additive Damped (Ad), Multiplicative (M), Multiplicative Damped (Md)</td>
+</tr>
+<tr class="odd">
+<td><strong>Seasonal</strong></td>
+<td>None (N), Additive (A), Multiplicative (M)</td>
+</tr>
+</tbody>
+</table>
+<p>This gives us <strong>30 possible models</strong> (though some are rarely used).</p>
+</section>
+<section id="common-model-examples" class="level3">
+<h3 class="anchored" data-anchor-id="common-model-examples">2.2 Common Model Examples</h3>
+<div class="cell">
+<div id="tbl-ets-models" class="cell quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-ets-models-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;1: Common ETS Models and Their Traditional Names
+</figcaption>
+<div aria-describedby="tbl-ets-models-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output-display">
+<table class="do-not-create-environment cell caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 14%">
+<col style="width: 43%">
+<col style="width: 41%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">ETS_Notation</th>
+<th style="text-align: left;">Traditional_Name</th>
+<th style="text-align: left;">Use_Case</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">ETS(A,N,N)</td>
+<td style="text-align: left;">Simple Exponential Smoothing (SES)</td>
+<td style="text-align: left;">No trend, no seasonality</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">ETS(A,A,N)</td>
+<td style="text-align: left;">Holt’s Linear Method</td>
+<td style="text-align: left;">Linear trend, no seasonality</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">ETS(A,Ad,N)</td>
+<td style="text-align: left;">Damped Trend Method</td>
+<td style="text-align: left;">Trend that levels off</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">ETS(A,A,A)</td>
+<td style="text-align: left;">Additive Holt-Winters</td>
+<td style="text-align: left;">Linear trend + additive seasons</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">ETS(A,A,M)</td>
+<td style="text-align: left;">Multiplicative Holt-Winters</td>
+<td style="text-align: left;">Linear trend + multiplicative seasons</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">ETS(M,A,M)</td>
+<td style="text-align: left;">Holt-Winters with Multiplicative Errors</td>
+<td style="text-align: left;">When variance increases with level</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</figure>
+</div>
+</div>
+</section>
+<section id="holt-winters-additive-method-a-detailed-example" class="level3">
+<h3 class="anchored" data-anchor-id="holt-winters-additive-method-a-detailed-example">2.3 Holt-Winters Additive Method: A Detailed Example</h3>
+<p>The Holt-Winters additive method ETS(A,A,A) uses these equations:</p>
+<p><strong>Level:</strong> <span class="math display">\[\ell_t = \alpha(y_t - s_{t-m}) + (1-\alpha)(\ell_{t-1} + b_{t-1})\]</span></p>
+<p><strong>Trend:</strong> <span class="math display">\[b_t = \beta^*(\ell_t - \ell_{t-1}) + (1-\beta^*)b_{t-1}\]</span></p>
+<p><strong>Seasonal:</strong> <span class="math display">\[s_t = \gamma(y_t - \ell_{t-1} - b_{t-1}) + (1-\gamma)s_{t-m}\]</span></p>
+<p><strong>Forecast:</strong> <span class="math display">\[\hat{y}_{t+h|t} = \ell_t + b_t h + s_{t-m+h_m^+}\]</span></p>
+<p>where <span class="math inline">\(m\)</span> is the seasonal period and <span class="math inline">\(h_m^+ = [(h-1) \mod m] + 1\)</span>.</p>
+</section>
+<section id="state-space-representation" class="level3">
+<h3 class="anchored" data-anchor-id="state-space-representation">2.4 State Space Representation</h3>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+From Ad-hoc to Rigorous
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Exponential smoothing may seem ad-hoc until embedded in a <strong>state space model (SSM)</strong>. The SSM framework provides:</p>
+<ul>
+<li>A probabilistic foundation</li>
+<li>Prediction intervals</li>
+<li>Likelihood-based estimation</li>
+<li>Model selection via information criteria</li>
+</ul>
+</div>
+</div>
+<p>The general innovations state space model:</p>
+<p><span class="math display">\[y_t = w(\mathbf{x}_{t-1}) + r(\mathbf{x}_{t-1})\varepsilon_t\]</span> <span class="math display">\[\mathbf{x}_t = f(\mathbf{x}_{t-1}) + g(\mathbf{x}_{t-1})\varepsilon_t\]</span></p>
+<p>where <span class="math inline">\(\{\varepsilon_t\}\)</span> is Gaussian white noise with mean zero and variance <span class="math inline">\(\sigma^2\)</span>.</p>
+</section>
+<section id="technical-note-the-pomp-assumption" class="level3">
+<h3 class="anchored" data-anchor-id="technical-note-the-pomp-assumption">2.5 Technical Note: The POMP Assumption</h3>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+A Technical Critique
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>The innovations state space model <strong>violates</strong> the usual POMP (Partially Observed Markov Process) assumption that <span class="math inline">\(Y_n\)</span> is conditionally independent of all other variables given <span class="math inline">\(X_n\)</span>.</p>
+<p><strong>Why?</strong> The same error term <span class="math inline">\(\varepsilon_t\)</span> appears in both the observation and state equations.</p>
+</div>
+</div>
+<p><strong>Standard POMP:</strong></p>
+<pre><code>State noise η_t ──→ X_t ──→ Y_t ←── Observation noise ε_t
+(Two independent noise sources)</code></pre>
+<p><strong>Innovations State Space:</strong></p>
+<pre><code>Single ε_t ──┬──→ X_t (state update)
+             └──→ Y_t (observation)
+(One shared noise source)</code></pre>
+<p>This is not an error—it’s a different model class that simplifies likelihood computation.</p>
+</section>
+<section id="r-implementation-ets-function" class="level3">
+<h3 class="anchored" data-anchor-id="r-implementation-ets-function">2.6 R Implementation: <code>ets()</code> Function</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(forecast)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Load example data: Monthly airline passengers</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span>(<span class="st">"AirPassengers"</span>)</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>ap <span class="ot">&lt;-</span> AirPassengers</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Automatic model selection</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>ets_fit <span class="ot">&lt;-</span> <span class="fu">ets</span>(ap)</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(ets_fit)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>ETS(M,Ad,M) 
+
+Call:
+ets(y = ap)
+
+  Smoothing parameters:
+    alpha = 0.7096 
+    beta  = 0.0204 
+    gamma = 1e-04 
+    phi   = 0.98 
+
+  Initial states:
+    l = 120.9939 
+    b = 1.7705 
+    s = 0.8944 0.7993 0.9217 1.0592 1.2203 1.2318
+           1.1105 0.9786 0.9804 1.011 0.8869 0.9059
+
+  sigma:  0.0392
+
+     AIC     AICc      BIC 
+1395.166 1400.638 1448.623 </code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot the decomposition</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(ets_fit)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="forecast_paper_notes_files/figure-html/ets-components-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption>ETS Model Components</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Generate forecasts</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>ets_forecast <span class="ot">&lt;-</span> <span class="fu">forecast</span>(ets_fit, <span class="at">h =</span> <span class="dv">24</span>)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(ets_forecast, <span class="at">main =</span> <span class="st">"Air Passengers Forecast (ETS)"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="forecast_paper_notes_files/figure-html/ets-forecast-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption>ETS Forecast with Prediction Intervals</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="initial-value-estimation" class="level3">
+<h3 class="anchored" data-anchor-id="initial-value-estimation">2.7 Initial Value Estimation</h3>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Key Innovation
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Most implementations use <strong>ad-hoc heuristics</strong> for initial values. The <code>forecast</code> package estimates initial values <span class="math inline">\(\mathbf{x}_0\)</span> along with parameters <span class="math inline">\(\theta\)</span> via maximum likelihood:</p>
+<p><span class="math display">\[L^*(\theta, \mathbf{x}_0) = n \log\left(\sum_{t=1}^n \varepsilon_t^2\right) + 2\sum_{t=1}^n \log|r(\mathbf{x}_{t-1})|\]</span></p>
+<p>This often produces <strong>substantially better forecasts</strong>.</p>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Extract estimated parameters</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Smoothing parameters:</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Smoothing parameters:</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"  alpha ="</span>, ets_fit<span class="sc">$</span>par[<span class="st">"alpha"</span>], <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  alpha = 0.7095519 </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"  beta  ="</span>, ets_fit<span class="sc">$</span>par[<span class="st">"beta"</span>], <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  beta  = 0.02040892 </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"  gamma ="</span>, ets_fit<span class="sc">$</span>par[<span class="st">"gamma"</span>], <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  gamma = 0.0001004683 </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Initial states:</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Initial states:</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"  l0 ="</span>, ets_fit<span class="sc">$</span>initstate[<span class="dv">1</span>], <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  l0 = 120.9939 </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"  b0 ="</span>, ets_fit<span class="sc">$</span>initstate[<span class="dv">2</span>], <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  b0 = 1.77054 </code></pre>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="arima-models" class="level2">
+<h2 class="anchored" data-anchor-id="arima-models">3. ARIMA Models</h2>
+<section id="model-specification" class="level3">
+<h3 class="anchored" data-anchor-id="model-specification">3.1 Model Specification</h3>
+<p>A seasonal ARIMA<span class="math inline">\((p,d,q)(P,D,Q)_m\)</span> model:</p>
+<p><span class="math display">\[\Phi(B^m)\phi(B)(1-B^m)^D(1-B)^d y_t = c + \Theta(B^m)\theta(B)\varepsilon_t\]</span></p>
+<p>where:</p>
+<ul>
+<li><span class="math inline">\(p, q\)</span>: non-seasonal AR and MA orders</li>
+<li><span class="math inline">\(P, Q\)</span>: seasonal AR and MA orders<br>
+</li>
+<li><span class="math inline">\(d, D\)</span>: non-seasonal and seasonal differencing</li>
+<li><span class="math inline">\(m\)</span>: seasonal period (e.g., 12 for monthly data)</li>
+</ul>
+</section>
+<section id="the-challenge-of-model-selection" class="level3">
+<h3 class="anchored" data-anchor-id="the-challenge-of-model-selection">3.2 The Challenge of Model Selection</h3>
+<p>With <span class="math inline">\(p, q \in \{0,1,2,3,4,5\}\)</span> and <span class="math inline">\(P, Q \in \{0,1,2\}\)</span>, we have potentially <strong>hundreds of models</strong> to consider.</p>
+</section>
+<section id="determining-differencing-orders" class="level3">
+<h3 class="anchored" data-anchor-id="determining-differencing-orders">3.3 Determining Differencing Orders</h3>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Unit Root Tests vs.&nbsp;Diffuse Priors
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>The paper prefers <strong>unit root tests</strong> over diffuse priors because:</p>
+<blockquote class="blockquote">
+<p>“Over-differencing harms forecasts and widens prediction intervals.”</p>
+</blockquote>
+<ul>
+<li><strong>KPSS test</strong>: For non-seasonal differencing <span class="math inline">\(d\)</span></li>
+<li><strong>Canova-Hansen test</strong>: For seasonal differencing <span class="math inline">\(D\)</span></li>
+</ul>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tseries)</span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Example: Testing for unit roots</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a><span class="co"># KPSS test (null: stationary)</span></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>kpss_result <span class="ot">&lt;-</span> <span class="fu">kpss.test</span>(ap)</span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"KPSS Test p-value:"</span>, kpss_result<span class="sc">$</span>p.value, <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>KPSS Test p-value: 0.01 </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Interpretation: p &lt; 0.05 suggests differencing needed</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Interpretation: p &lt; 0.05 suggests differencing needed</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Test on differenced data</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>kpss_diff <span class="ot">&lt;-</span> <span class="fu">kpss.test</span>(<span class="fu">diff</span>(ap))</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">KPSS on differenced data p-value:"</span>, kpss_diff<span class="sc">$</span>p.value, <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+KPSS on differenced data p-value: 0.1 </code></pre>
+</div>
+</div>
+</section>
+<section id="the-stepwise-algorithm" class="level3">
+<h3 class="anchored" data-anchor-id="the-stepwise-algorithm">3.4 The Stepwise Algorithm</h3>
+<p>The <code>auto.arima()</code> function uses a <strong>stepwise search</strong> rather than exhaustive search:</p>
+<p><strong>Step 1:</strong> Start with 4 candidate models:</p>
+<ul>
+<li>ARIMA(2,d,2)(1,D,1) or simpler variants</li>
+<li>ARIMA(0,d,0)(0,D,0)</li>
+<li>ARIMA(1,d,0)(1,D,0)</li>
+<li>ARIMA(0,d,1)(0,D,1)</li>
+</ul>
+<p><strong>Step 2:</strong> Consider 13 variations of current best:</p>
+<ul>
+<li>Vary <span class="math inline">\(p, q, P, Q\)</span> by ±1</li>
+<li>Vary both <span class="math inline">\(p\)</span> and <span class="math inline">\(q\)</span> by ±1</li>
+<li>Vary both <span class="math inline">\(P\)</span> and <span class="math inline">\(Q\)</span> by ±1</li>
+<li>Include/exclude constant <span class="math inline">\(c\)</span></li>
+</ul>
+<p><strong>Step 3:</strong> Select model with lowest AIC; repeat until no improvement.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Automatic ARIMA model selection</span></span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>arima_fit <span class="ot">&lt;-</span> <span class="fu">auto.arima</span>(ap, <span class="at">trace =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+ ARIMA(2,1,2)(1,1,1)[12]                    : Inf
+ ARIMA(0,1,0)(0,1,0)[12]                    : 1031.539
+ ARIMA(1,1,0)(1,1,0)[12]                    : 1020.582
+ ARIMA(0,1,1)(0,1,1)[12]                    : 1021.192
+ ARIMA(1,1,0)(0,1,0)[12]                    : 1020.488
+ ARIMA(1,1,0)(0,1,1)[12]                    : 1021.103
+ ARIMA(1,1,0)(1,1,1)[12]                    : Inf
+ ARIMA(2,1,0)(0,1,0)[12]                    : 1022.583
+ ARIMA(1,1,1)(0,1,0)[12]                    : 1022.583
+ ARIMA(0,1,1)(0,1,0)[12]                    : 1020.733
+ ARIMA(2,1,1)(0,1,0)[12]                    : 1018.165
+ ARIMA(2,1,1)(1,1,0)[12]                    : 1018.395
+ ARIMA(2,1,1)(0,1,1)[12]                    : 1018.84
+ ARIMA(2,1,1)(1,1,1)[12]                    : Inf
+ ARIMA(3,1,1)(0,1,0)[12]                    : 1019.565
+ ARIMA(2,1,2)(0,1,0)[12]                    : 1019.771
+ ARIMA(1,1,2)(0,1,0)[12]                    : 1024.478
+ ARIMA(3,1,0)(0,1,0)[12]                    : 1023.984
+ ARIMA(3,1,2)(0,1,0)[12]                    : Inf
+
+ Best model: ARIMA(2,1,1)(0,1,0)[12]                    </code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Model summary</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(arima_fit)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Series: ap 
+ARIMA(2,1,1)(0,1,0)[12] 
+
+Coefficients:
+         ar1     ar2      ma1
+      0.5960  0.2142  -0.9819
+s.e.  0.0888  0.0880   0.0292
+
+sigma^2 = 132.3:  log likelihood = -504.92
+AIC=1017.85   AICc=1018.17   BIC=1029.35
+
+Training set error measures:
+                   ME     RMSE      MAE       MPE    MAPE     MASE         ACF1
+Training set 1.342189 10.84619 7.867506 0.4206662 2.80045 0.245627 -0.001286643</code></pre>
+</div>
+</div>
+</section>
+<section id="model-constraints" class="level3">
+<h3 class="anchored" data-anchor-id="model-constraints">3.5 Model Constraints</h3>
+<p>The algorithm rejects models that:</p>
+<ol type="1">
+<li>Have roots close to unit circle (|root| &lt; 1.001)</li>
+<li>Encounter numerical optimization errors</li>
+<li>Exceed specified bounds for <span class="math inline">\(p, q, P, Q\)</span></li>
+</ol>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Check AR and MA polynomial roots</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a><span class="co"># AR roots should have modulus &gt; 1 for stationarity</span></span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a><span class="co"># MA roots should have modulus &gt; 1 for invertibility</span></span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Model coefficients:</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Model coefficients:</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">coef</span>(arima_fit))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>       ar1        ar2        ma1 
+ 0.5960155  0.2142410 -0.9818730 </code></pre>
+</div>
+</div>
+</section>
+<section id="arima-forecast" class="level3">
+<h3 class="anchored" data-anchor-id="arima-forecast">3.6 ARIMA Forecast</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a>arima_forecast <span class="ot">&lt;-</span> <span class="fu">forecast</span>(arima_fit, <span class="at">h =</span> <span class="dv">24</span>)</span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(arima_forecast, <span class="at">main =</span> <span class="st">"Air Passengers Forecast (ARIMA)"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="forecast_paper_notes_files/figure-html/arima-forecast-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption>ARIMA Forecast with Prediction Intervals</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="model-selection-why-aic" class="level2">
+<h2 class="anchored" data-anchor-id="model-selection-why-aic">4. Model Selection: Why AIC?</h2>
+<section id="aic-formula" class="level3">
+<h3 class="anchored" data-anchor-id="aic-formula">4.1 AIC Formula</h3>
+<p><span class="math display">\[\text{AIC} = -2\log(L) + 2k\]</span></p>
+<p>where <span class="math inline">\(L\)</span> is the maximized likelihood and <span class="math inline">\(k\)</span> is the number of parameters.</p>
+</section>
+<section id="aic-vs-bic" class="level3">
+<h3 class="anchored" data-anchor-id="aic-vs-bic">4.2 AIC vs BIC</h3>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Critical Perspective
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>The paper states: “Obviously, other model selection criteria (such as the BIC) could also be used.”</p>
+<p>But is there anything special about AIC? <strong>Not for consistent model selection.</strong></p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Criterion</th>
+<th>Tendency</th>
+<th>Best For</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>AIC</td>
+<td>Selects more complex models</td>
+<td>Prediction</td>
+</tr>
+<tr class="even">
+<td>BIC</td>
+<td>Selects simpler models</td>
+<td>Model identification</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Compare AIC and BIC for different models</span></span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a>models <span class="ot">&lt;-</span> <span class="fu">list</span>(</span>
+<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">ets_AAN =</span> <span class="fu">ets</span>(ap, <span class="at">model =</span> <span class="st">"AAN"</span>),</span>
+<span id="cb36-4"><a href="#cb36-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">ets_AAA =</span> <span class="fu">ets</span>(ap, <span class="at">model =</span> <span class="st">"AAA"</span>),</span>
+<span id="cb36-5"><a href="#cb36-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">ets_MAM =</span> <span class="fu">ets</span>(ap, <span class="at">model =</span> <span class="st">"MAM"</span>)</span>
+<span id="cb36-6"><a href="#cb36-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb36-7"><a href="#cb36-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb36-8"><a href="#cb36-8" aria-hidden="true" tabindex="-1"></a>comparison <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb36-9"><a href="#cb36-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">Model =</span> <span class="fu">names</span>(models),</span>
+<span id="cb36-10"><a href="#cb36-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">AIC =</span> <span class="fu">sapply</span>(models, <span class="cf">function</span>(x) x<span class="sc">$</span>aic),</span>
+<span id="cb36-11"><a href="#cb36-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">BIC =</span> <span class="fu">sapply</span>(models, <span class="cf">function</span>(x) x<span class="sc">$</span>bic)</span>
+<span id="cb36-12"><a href="#cb36-12" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb36-13"><a href="#cb36-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb36-14"><a href="#cb36-14" aria-hidden="true" tabindex="-1"></a><span class="fu">kable</span>(comparison, <span class="at">digits =</span> <span class="dv">2</span>, <span class="at">caption =</span> <span class="st">"Model Comparison: AIC vs BIC"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<table class="caption-top table table-sm table-striped small">
+<caption>Model Comparison: AIC vs BIC</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;"></th>
+<th style="text-align: left;">Model</th>
+<th style="text-align: right;">AIC</th>
+<th style="text-align: right;">BIC</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">ets_AAN</td>
+<td style="text-align: left;">ets_AAN</td>
+<td style="text-align: right;">1737.29</td>
+<td style="text-align: right;">1752.14</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">ets_AAA</td>
+<td style="text-align: left;">ets_AAA</td>
+<td style="text-align: right;">1565.87</td>
+<td style="text-align: right;">1616.36</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">ets_MAM</td>
+<td style="text-align: left;">ets_MAM</td>
+<td style="text-align: right;">1395.17</td>
+<td style="text-align: right;">1448.62</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="ets-vs-arima-when-to-use-which" class="level2">
+<h2 class="anchored" data-anchor-id="ets-vs-arima-when-to-use-which">5. ETS vs ARIMA: When to Use Which?</h2>
+<section id="competition-results" class="level3">
+<h3 class="anchored" data-anchor-id="competition-results">5.1 Competition Results</h3>
+<p>From the M-competition and M3-competition:</p>
+<blockquote class="blockquote">
+<p>“The methodology is particularly good at <strong>short term forecasts</strong> (up to about 6 periods ahead), and especially for <strong>seasonal short-term series</strong>.”</p>
+</blockquote>
+</section>
+<section id="key-insight-bigger-model-class-better" class="level3">
+<h3 class="anchored" data-anchor-id="key-insight-bigger-model-class-better">5.2 Key Insight: Bigger Model Class ≠ Better</h3>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Counter-intuitive Finding
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>ARIMA has a <strong>larger model space</strong> than ETS, but this can actually <strong>harm</strong> performance:</p>
+<blockquote class="blockquote">
+<p>“The larger model space of ARIMA models actually harms forecasting performance because it introduces additional uncertainty.”</p>
+</blockquote>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Method</th>
+<th>Number of Models</th>
+<th>Seasonal Performance</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>ETS</td>
+<td>~30</td>
+<td>Better</td>
+</tr>
+<tr class="even">
+<td>SARIMA</td>
+<td>~480+</td>
+<td>More model selection uncertainty</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</section>
+<section id="practical-comparison" class="level3">
+<h3 class="anchored" data-anchor-id="practical-comparison">5.3 Practical Comparison</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">1</span>))</span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a><span class="co"># ETS forecast</span></span>
+<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(ets_forecast, <span class="at">main =</span> <span class="st">"ETS Forecast"</span>)</span>
+<span id="cb37-5"><a href="#cb37-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-6"><a href="#cb37-6" aria-hidden="true" tabindex="-1"></a><span class="co"># ARIMA forecast  </span></span>
+<span id="cb37-7"><a href="#cb37-7" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(arima_forecast, <span class="at">main =</span> <span class="st">"ARIMA Forecast"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="forecast_paper_notes_files/figure-html/ets-vs-arima-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption>ETS vs ARIMA Forecasts Comparison</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Compare in-sample accuracy</span></span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"ETS Accuracy:</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>ETS Accuracy:</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">accuracy</span>(ets_fit))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                   ME     RMSE      MAE       MPE     MAPE      MASE       ACF1
+Training set 1.567359 10.74726 7.791605 0.4357799 2.857917 0.2432573 0.03945056</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">ARIMA Accuracy:</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+ARIMA Accuracy:</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb44"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">accuracy</span>(arima_fit))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                   ME     RMSE      MAE       MPE    MAPE     MASE         ACF1
+Training set 1.342189 10.84619 7.867506 0.4206662 2.80045 0.245627 -0.001286643</code></pre>
+</div>
+</div>
+</section>
+<section id="cross-validation-comparison" class="level3">
+<h3 class="anchored" data-anchor-id="cross-validation-comparison">5.4 Cross-Validation Comparison</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Time series cross-validation</span></span>
+<span id="cb46-2"><a href="#cb46-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Using a rolling window approach</span></span>
+<span id="cb46-3"><a href="#cb46-3" aria-hidden="true" tabindex="-1"></a>n <span class="ot">&lt;-</span> <span class="fu">length</span>(ap)</span>
+<span id="cb46-4"><a href="#cb46-4" aria-hidden="true" tabindex="-1"></a>train_size <span class="ot">&lt;-</span> <span class="dv">120</span>  <span class="co"># Use first 10 years for initial training</span></span>
+<span id="cb46-5"><a href="#cb46-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb46-6"><a href="#cb46-6" aria-hidden="true" tabindex="-1"></a>ets_errors <span class="ot">&lt;-</span> <span class="fu">c</span>()</span>
+<span id="cb46-7"><a href="#cb46-7" aria-hidden="true" tabindex="-1"></a>arima_errors <span class="ot">&lt;-</span> <span class="fu">c</span>()</span>
+<span id="cb46-8"><a href="#cb46-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb46-9"><a href="#cb46-9" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(i <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">12</span>) {</span>
+<span id="cb46-10"><a href="#cb46-10" aria-hidden="true" tabindex="-1"></a>  train <span class="ot">&lt;-</span> <span class="fu">window</span>(ap, <span class="at">end =</span> <span class="fu">c</span>(<span class="dv">1958</span>, i <span class="sc">+</span> <span class="dv">11</span>))</span>
+<span id="cb46-11"><a href="#cb46-11" aria-hidden="true" tabindex="-1"></a>  test <span class="ot">&lt;-</span> <span class="fu">window</span>(ap, <span class="at">start =</span> <span class="fu">c</span>(<span class="dv">1958</span>, i <span class="sc">+</span> <span class="dv">12</span>), <span class="at">end =</span> <span class="fu">c</span>(<span class="dv">1958</span>, i <span class="sc">+</span> <span class="dv">12</span>))</span>
+<span id="cb46-12"><a href="#cb46-12" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb46-13"><a href="#cb46-13" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span>(<span class="fu">length</span>(test) <span class="sc">&gt;</span> <span class="dv">0</span>) {</span>
+<span id="cb46-14"><a href="#cb46-14" aria-hidden="true" tabindex="-1"></a>    <span class="co"># ETS forecast</span></span>
+<span id="cb46-15"><a href="#cb46-15" aria-hidden="true" tabindex="-1"></a>    ets_model <span class="ot">&lt;-</span> <span class="fu">ets</span>(train)</span>
+<span id="cb46-16"><a href="#cb46-16" aria-hidden="true" tabindex="-1"></a>    ets_fc <span class="ot">&lt;-</span> <span class="fu">forecast</span>(ets_model, <span class="at">h =</span> <span class="dv">1</span>)</span>
+<span id="cb46-17"><a href="#cb46-17" aria-hidden="true" tabindex="-1"></a>    ets_errors <span class="ot">&lt;-</span> <span class="fu">c</span>(ets_errors, <span class="fu">as.numeric</span>(test) <span class="sc">-</span> ets_fc<span class="sc">$</span>mean)</span>
+<span id="cb46-18"><a href="#cb46-18" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb46-19"><a href="#cb46-19" aria-hidden="true" tabindex="-1"></a>    <span class="co"># ARIMA forecast</span></span>
+<span id="cb46-20"><a href="#cb46-20" aria-hidden="true" tabindex="-1"></a>    arima_model <span class="ot">&lt;-</span> <span class="fu">auto.arima</span>(train)</span>
+<span id="cb46-21"><a href="#cb46-21" aria-hidden="true" tabindex="-1"></a>    arima_fc <span class="ot">&lt;-</span> <span class="fu">forecast</span>(arima_model, <span class="at">h =</span> <span class="dv">1</span>)</span>
+<span id="cb46-22"><a href="#cb46-22" aria-hidden="true" tabindex="-1"></a>    arima_errors <span class="ot">&lt;-</span> <span class="fu">c</span>(arima_errors, <span class="fu">as.numeric</span>(test) <span class="sc">-</span> arima_fc<span class="sc">$</span>mean)</span>
+<span id="cb46-23"><a href="#cb46-23" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb46-24"><a href="#cb46-24" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb46-25"><a href="#cb46-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb46-26"><a href="#cb46-26" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"One-step-ahead forecast comparison:</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>One-step-ahead forecast comparison:</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb48"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"ETS RMSE:"</span>, <span class="fu">sqrt</span>(<span class="fu">mean</span>(ets_errors<span class="sc">^</span><span class="dv">2</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)), <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>ETS RMSE: 16.09778 </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb50"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"ARIMA RMSE:"</span>, <span class="fu">sqrt</span>(<span class="fu">mean</span>(arima_errors<span class="sc">^</span><span class="dv">2</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)), <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>ARIMA RMSE: 12.55419 </code></pre>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="practical-examples" class="level2">
+<h2 class="anchored" data-anchor-id="practical-examples">6. Practical Examples</h2>
+<section id="example-1-non-seasonal-data-us-bond-yields" class="level3">
+<h3 class="anchored" data-anchor-id="example-1-non-seasonal-data-us-bond-yields">6.1 Example 1: Non-Seasonal Data (US Bond Yields)</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb52"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Simulate similar data to paper's example</span></span>
+<span id="cb52-2"><a href="#cb52-2" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">42</span>)</span>
+<span id="cb52-3"><a href="#cb52-3" aria-hidden="true" tabindex="-1"></a>bonds <span class="ot">&lt;-</span> <span class="fu">ts</span>(<span class="fu">cumsum</span>(<span class="fu">rnorm</span>(<span class="dv">125</span>, <span class="dv">0</span>, <span class="fl">0.3</span>)) <span class="sc">+</span> <span class="dv">5</span>, <span class="at">start =</span> <span class="fu">c</span>(<span class="dv">1994</span>, <span class="dv">1</span>), <span class="at">frequency =</span> <span class="dv">12</span>)</span>
+<span id="cb52-4"><a href="#cb52-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb52-5"><a href="#cb52-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Fit models</span></span>
+<span id="cb52-6"><a href="#cb52-6" aria-hidden="true" tabindex="-1"></a>ets_bonds <span class="ot">&lt;-</span> <span class="fu">ets</span>(bonds)</span>
+<span id="cb52-7"><a href="#cb52-7" aria-hidden="true" tabindex="-1"></a>arima_bonds <span class="ot">&lt;-</span> <span class="fu">auto.arima</span>(bonds)</span>
+<span id="cb52-8"><a href="#cb52-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb52-9"><a href="#cb52-9" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"ETS model selected:"</span>, ets_bonds<span class="sc">$</span>method, <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>ETS model selected: ETS(M,N,N) </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb54"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"ARIMA model selected: ARIMA("</span>, <span class="fu">paste</span>(<span class="fu">arimaorder</span>(arima_bonds), <span class="at">collapse =</span> <span class="st">","</span>), <span class="st">")</span><span class="sc">\n</span><span class="st">"</span>, <span class="at">sep =</span> <span class="st">""</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>ARIMA model selected: ARIMA(0,1,0)</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb56"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb56-1"><a href="#cb56-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Forecast</span></span>
+<span id="cb56-2"><a href="#cb56-2" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>))</span>
+<span id="cb56-3"><a href="#cb56-3" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(<span class="fu">forecast</span>(ets_bonds, <span class="at">h =</span> <span class="dv">24</span>), <span class="at">main =</span> <span class="st">"ETS"</span>)</span>
+<span id="cb56-4"><a href="#cb56-4" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(<span class="fu">forecast</span>(arima_bonds, <span class="at">h =</span> <span class="dv">24</span>), <span class="at">main =</span> <span class="st">"ARIMA"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="forecast_paper_notes_files/figure-html/example-nonseasonal-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption>US Bond Yields: Non-Seasonal Example</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="example-2-seasonal-data-with-trend" class="level3">
+<h3 class="anchored" data-anchor-id="example-2-seasonal-data-with-trend">6.2 Example 2: Seasonal Data with Trend</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb57"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb57-1"><a href="#cb57-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Australian tourists data (similar to paper)</span></span>
+<span id="cb57-2"><a href="#cb57-2" aria-hidden="true" tabindex="-1"></a><span class="fu">data</span>(<span class="st">"austourists"</span>, <span class="at">package =</span> <span class="st">"fpp2"</span>)</span>
+<span id="cb57-3"><a href="#cb57-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb57-4"><a href="#cb57-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Fit both models</span></span>
+<span id="cb57-5"><a href="#cb57-5" aria-hidden="true" tabindex="-1"></a>ets_tourists <span class="ot">&lt;-</span> <span class="fu">ets</span>(austourists)</span>
+<span id="cb57-6"><a href="#cb57-6" aria-hidden="true" tabindex="-1"></a>arima_tourists <span class="ot">&lt;-</span> <span class="fu">auto.arima</span>(austourists)</span>
+<span id="cb57-7"><a href="#cb57-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb57-8"><a href="#cb57-8" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"ETS model:"</span>, ets_tourists<span class="sc">$</span>method, <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>ETS model: ETS(M,A,M) </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb59"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb59-1"><a href="#cb59-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"ARIMA model: ARIMA"</span>, <span class="fu">paste</span>(<span class="fu">arimaorder</span>(arima_tourists), <span class="at">collapse =</span> <span class="st">","</span>), <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>ARIMA model: ARIMA 1,0,0,1,1,0,4 </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb61"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb61-1"><a href="#cb61-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Compare forecasts</span></span>
+<span id="cb61-2"><a href="#cb61-2" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">1</span>))</span>
+<span id="cb61-3"><a href="#cb61-3" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(<span class="fu">forecast</span>(ets_tourists, <span class="at">h =</span> <span class="dv">16</span>), <span class="at">main =</span> <span class="fu">paste</span>(<span class="st">"ETS:"</span>, ets_tourists<span class="sc">$</span>method))</span>
+<span id="cb61-4"><a href="#cb61-4" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(<span class="fu">forecast</span>(arima_tourists, <span class="at">h =</span> <span class="dv">16</span>), <span class="at">main =</span> <span class="st">"ARIMA"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="forecast_paper_notes_files/figure-html/example-seasonal-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption>Seasonal Data with Trend</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="example-3-intermittent-demand-crostons-method" class="level3">
+<h3 class="anchored" data-anchor-id="example-3-intermittent-demand-crostons-method">6.3 Example 3: Intermittent Demand (Croston’s Method)</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb62"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb62-1"><a href="#cb62-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Simulate intermittent demand</span></span>
+<span id="cb62-2"><a href="#cb62-2" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">123</span>)</span>
+<span id="cb62-3"><a href="#cb62-3" aria-hidden="true" tabindex="-1"></a>demand <span class="ot">&lt;-</span> <span class="fu">rpois</span>(<span class="dv">100</span>, <span class="at">lambda =</span> <span class="fl">0.5</span>)</span>
+<span id="cb62-4"><a href="#cb62-4" aria-hidden="true" tabindex="-1"></a>demand_ts <span class="ot">&lt;-</span> <span class="fu">ts</span>(demand)</span>
+<span id="cb62-5"><a href="#cb62-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb62-6"><a href="#cb62-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Croston's method for intermittent demand</span></span>
+<span id="cb62-7"><a href="#cb62-7" aria-hidden="true" tabindex="-1"></a>croston_fit <span class="ot">&lt;-</span> <span class="fu">croston</span>(demand_ts, <span class="at">h =</span> <span class="dv">20</span>)</span>
+<span id="cb62-8"><a href="#cb62-8" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(croston_fit, <span class="at">main =</span> <span class="st">"Croston's Method for Intermittent Demand"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="forecast_paper_notes_files/figure-html/croston-example-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption>Intermittent Demand Forecasting</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="the-forecast-class-and-software-design" class="level2">
+<h2 class="anchored" data-anchor-id="the-forecast-class-and-software-design">7. The <code>forecast</code> Class and Software Design</h2>
+<section id="s3-object-oriented-design" class="level3">
+<h3 class="anchored" data-anchor-id="s3-object-oriented-design">7.1 S3 Object-Oriented Design</h3>
+<p>The package uses R’s <strong>S3 class system</strong> for flexibility:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb63"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb63-1"><a href="#cb63-1" aria-hidden="true" tabindex="-1"></a><span class="co"># The forecast object</span></span>
+<span id="cb63-2"><a href="#cb63-2" aria-hidden="true" tabindex="-1"></a>fc <span class="ot">&lt;-</span> <span class="fu">forecast</span>(ets_fit, <span class="at">h =</span> <span class="dv">12</span>)</span>
+<span id="cb63-3"><a href="#cb63-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb63-4"><a href="#cb63-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Check the class</span></span>
+<span id="cb63-5"><a href="#cb63-5" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Class:"</span>, <span class="fu">class</span>(fc), <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Class: forecast </code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb65"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb65-1"><a href="#cb65-1" aria-hidden="true" tabindex="-1"></a><span class="co"># What's inside?</span></span>
+<span id="cb65-2"><a href="#cb65-2" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">Components of forecast object:</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Components of forecast object:</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb67"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb67-1"><a href="#cb67-1" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(fc)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> [1] "model"     "mean"      "level"     "x"         "upper"     "lower"    
+ [7] "fitted"    "method"    "series"    "residuals"</code></pre>
+</div>
+</div>
+</section>
+<section id="generic-functions" class="level3">
+<h3 class="anchored" data-anchor-id="generic-functions">7.2 Generic Functions</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb69"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb69-1"><a href="#cb69-1" aria-hidden="true" tabindex="-1"></a><span class="co"># These all work because of S3 methods</span></span>
+<span id="cb69-2"><a href="#cb69-2" aria-hidden="true" tabindex="-1"></a><span class="co"># print.forecast, plot.forecast, summary.forecast, etc.</span></span>
+<span id="cb69-3"><a href="#cb69-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb69-4"><a href="#cb69-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Accessing components</span></span>
+<span id="cb69-5"><a href="#cb69-5" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"Point forecasts:</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Point forecasts:</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb71"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb71-1"><a href="#cb71-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(fc<span class="sc">$</span>mean)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>          Jan      Feb      Mar      Apr      May      Jun      Jul      Aug
+1961 441.8018 434.1186 496.6300 483.2375 483.9914 551.0244 613.1797 609.3648
+          Sep      Oct      Nov      Dec
+1961 530.5408 463.0332 402.7478 451.9694</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb73"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb73-1"><a href="#cb73-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">"</span><span class="sc">\n</span><span class="st">80% Prediction Interval:</span><span class="sc">\n</span><span class="st">"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+80% Prediction Interval:</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb75"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb75-1"><a href="#cb75-1" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">cbind</span>(<span class="at">Lower =</span> fc<span class="sc">$</span>lower[,<span class="dv">1</span>], <span class="at">Upper =</span> fc<span class="sc">$</span>upper[,<span class="dv">1</span>]))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>            Lower    Upper
+Jan 1961 419.6256 463.9780
+Feb 1961 407.1668 461.0704
+Mar 1961 460.6291 532.6310
+Apr 1961 443.6210 522.8539
+May 1961 440.0236 527.9591
+Jun 1961 496.3368 605.7120
+Jul 1961 547.3865 678.9728
+Aug 1961 539.2447 679.4850
+Sep 1961 465.4872 595.5944
+Oct 1961 402.8496 523.2168
+Nov 1961 347.4995 457.9961
+Dec 1961 386.7750 517.1638</code></pre>
+</div>
+</div>
+</section>
+<section id="why-s3-over-s4" class="level3">
+<h3 class="anchored" data-anchor-id="why-s3-over-s4">7.3 Why S3 Over S4?</h3>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>S3 Advantages</th>
+<th>Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Simple</td>
+<td>Easy to learn and use</td>
+</tr>
+<tr class="even">
+<td>Flexible</td>
+<td>Easy to extend</td>
+</tr>
+<tr class="odd">
+<td>R Convention</td>
+<td>Most base R packages use S3</td>
+</tr>
+<tr class="even">
+<td>Sufficient</td>
+<td>Complex OOP rarely needed for statistics</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+</section>
+<section id="summary-and-key-takeaways" class="level2">
+<h2 class="anchored" data-anchor-id="summary-and-key-takeaways">8. Summary and Key Takeaways</h2>
+<section id="main-contributions" class="level3">
+<h3 class="anchored" data-anchor-id="main-contributions">8.1 Main Contributions</h3>
+<ol type="1">
+<li><strong>Unified framework</strong> for exponential smoothing via state space models</li>
+<li><strong>Automatic model selection</strong> using AIC</li>
+<li><strong>Stepwise algorithm</strong> for ARIMA to avoid exhaustive search</li>
+<li><strong>Robust implementation</strong> in the <code>forecast</code> package</li>
+</ol>
+</section>
+<section id="when-each-method-excels" class="level3">
+<h3 class="anchored" data-anchor-id="when-each-method-excels">8.2 When Each Method Excels</h3>
+<div class="cell">
+<div id="tbl-method-comparison" class="cell quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-method-comparison-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Table&nbsp;2: When to Use ETS vs ARIMA
+</figcaption>
+<div aria-describedby="tbl-method-comparison-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output-display">
+<table class="do-not-create-environment cell caption-top table table-sm table-striped small">
+<colgroup>
+<col style="width: 32%">
+<col style="width: 23%">
+<col style="width: 44%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Scenario</th>
+<th style="text-align: left;">Recommended</th>
+<th style="text-align: left;">Reason</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Short-term forecasts</td>
+<td style="text-align: left;">ETS</td>
+<td style="text-align: left;">Competition results favor ETS</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Seasonal data</td>
+<td style="text-align: left;">ETS</td>
+<td style="text-align: left;">Smaller model space reduces uncertainty</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Annual data</td>
+<td style="text-align: left;">ARIMA</td>
+<td style="text-align: left;">ARIMA performed better in M3</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Data with heteroscedasticity</td>
+<td style="text-align: left;">ETS (multiplicative)</td>
+<td style="text-align: left;">Multiplicative errors handle this</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Need for interpretability</td>
+<td style="text-align: left;">ETS</td>
+<td style="text-align: left;">Clear level/trend/season decomposition</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Stationary data</td>
+<td style="text-align: left;">ARIMA</td>
+<td style="text-align: left;">ARIMA’s strength</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</figure>
+</div>
+</div>
+</section>
+<section id="critical-perspectives" class="level3">
+<h3 class="anchored" data-anchor-id="critical-perspectives">8.3 Critical Perspectives</h3>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Limitations to Remember
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ol type="1">
+<li><strong>Not truly “optimal”</strong>: Automatic selection ≠ best possible model</li>
+<li><strong>AIC limitations</strong>: Not consistent for model identification</li>
+<li><strong>Stepwise search</strong>: May find local, not global, optimum</li>
+<li><strong>No nonlinear trends</strong>: ARIMA framework doesn’t support this with ARMA errors</li>
+<li><strong>Assumption violations</strong>: Innovations SSM violates standard POMP assumptions</li>
+</ol>
+</div>
+</div>
+</section>
+<section id="best-practices" class="level3">
+<h3 class="anchored" data-anchor-id="best-practices">8.4 Best Practices</h3>
+<ol type="1">
+<li><strong>Don’t use blindly</strong>: Understand what the algorithm is doing</li>
+<li><strong>Check residuals</strong>: Always validate model assumptions</li>
+<li><strong>Compare methods</strong>: Try both ETS and ARIMA</li>
+<li><strong>Consider domain knowledge</strong>: Automatic doesn’t mean ignore expertise</li>
+<li><strong>Evaluate out-of-sample</strong>: Use cross-validation when possible</li>
+</ol>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb77"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb77-1"><a href="#cb77-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Always check residuals!</span></span>
+<span id="cb77-2"><a href="#cb77-2" aria-hidden="true" tabindex="-1"></a><span class="fu">checkresiduals</span>(ets_fit)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="forecast_paper_notes_files/figure-html/residual-check-1.png" class="img-fluid figure-img" width="672"></p>
+<figcaption>Residual Diagnostics for Model Validation</figcaption>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+    Ljung-Box test
+
+data:  Residuals from ETS(M,Ad,M)
+Q* = 51.341, df = 24, p-value = 0.0009527
+
+Model df: 0.   Total lags used: 24</code></pre>
+</div>
+</div>
+<hr>
+</section>
+</section>
+<section id="references" class="level2">
+<h2 class="anchored" data-anchor-id="references">9. References</h2>
+<ul>
+<li><p>Hyndman, R.J., &amp; Khandakar, Y. (2008). Automatic time series forecasting: The forecast package for R. <em>Journal of Statistical Software</em>, 27(3), 1-22.</p></li>
+<li><p>Hyndman, R.J., Koehler, A.B., Ord, J.K., &amp; Snyder, R.D. (2008). <em>Forecasting with Exponential Smoothing: The State Space Approach</em>. Springer.</p></li>
+<li><p>Hyndman, R.J., &amp; Athanasopoulos, G. (2021). <em>Forecasting: Principles and Practice</em> (3rd ed). OTexts. Available at: https://otexts.com/fpp3/</p></li>
+</ul>
+<hr>
+</section>
+<section id="appendix-session-information" class="level2">
+<h2 class="anchored" data-anchor-id="appendix-session-information">Appendix: Session Information</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb79"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb79-1"><a href="#cb79-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>R version 4.5.1 (2025-06-13)
+Platform: aarch64-apple-darwin20
+Running under: macOS Sequoia 15.6.1
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRblas.0.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.5-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.12.1
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/Detroit
+tzcode source: internal
+
+attached base packages:
+[1] stats     graphics  grDevices utils     datasets  methods   base     
+
+other attached packages:
+[1] tseries_0.10-59 forecast_9.0.0  knitr_1.50     
+
+loaded via a namespace (and not attached):
+ [1] gtable_0.3.6       jsonlite_2.0.0     dplyr_1.1.4        compiler_4.5.1    
+ [5] tidyselect_1.2.1   Rcpp_1.1.0         parallel_4.5.1     scales_1.4.0      
+ [9] yaml_2.3.10        fastmap_1.2.0      lattice_0.22-7     ggplot2_4.0.0     
+[13] R6_2.6.1           labeling_0.4.3     generics_0.1.4     curl_6.4.0        
+[17] lmtest_0.9-40      htmlwidgets_1.6.4  tibble_3.3.0       nnet_7.3-20       
+[21] timeDate_4051.111  pillar_1.11.1      RColorBrewer_1.1-3 rlang_1.1.6       
+[25] quantmod_0.4.28    urca_1.3-4         xfun_0.54          quadprog_1.5-8    
+[29] S7_0.2.0           cli_3.6.5          withr_3.0.2        magrittr_2.0.4    
+[33] xts_0.14.1         digest_0.6.38      grid_4.5.1         nlme_3.1-168      
+[37] lifecycle_1.0.4    fracdiff_1.5-3     vctrs_0.6.5        evaluate_1.0.5    
+[41] glue_1.8.0         farver_2.1.2       zoo_1.8-15         colorspace_2.1-2  
+[45] TTR_0.24.4         rmarkdown_2.30     tools_4.5.1        pkgconfig_2.0.3   
+[49] htmltools_0.5.8.1 </code></pre>
+</div>
+</div>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+        const codeEl = trigger.previousElementSibling.cloneNode(true);
+        for (const childEl of codeEl.children) {
+          if (isCodeAnnotation(childEl)) {
+            childEl.remove();
+          }
+        }
+        return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
